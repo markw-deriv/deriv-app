@@ -56,6 +56,10 @@ export default defineConfig({
             testDir: './packages/account/integration-tests',
         },
         {
+            name: 'cashier',
+            testDir: './packages/cashier/integration-tests',
+        },
+        {
             name: 'integration',
             testDir: './packages/integration/integration-tests',
         },
