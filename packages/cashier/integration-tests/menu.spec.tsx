@@ -12,19 +12,16 @@ test.describe('Cashier - Menu', () => {
         });
         await page.goto(`${baseURL}/cashier/deposit`);
 
-        await sleep(1000);
+        // await sleep(1000);
 
-        const header = await page.locator('header'); // Select the header element
+        const header = await page.locator('header');
 
-        // const tradersHubLink = await header.getByRole('link', { name: `Trader's Hub` });
-        const reportsLink = await header.getByRole('link', { name: 'Reports' }).first();
-        const cashierLink = await header.getByRole('link', { name: 'Cashier' }).first();
+        // await cashierLink.innerHTML();
 
-        await cashierLink.innerHTML();
+        const reportsAriaCurrent = await header.getByRole('link', { name: 'Reports' }).getAttribute('aria-current');
+        const cashierAriaCurrent = await header.getByRole('link', { name: 'Cashier' }).getAttribute('aria-current');
 
-        // expect(tradersHubLink).not.toHaveAttribute('aria-current', 'page');
-        // expect(reportsLink).not.toHaveAttribute('aria-current', 'page');
-        expect(reportsLink).not.toHaveAttribute('aria-current', 'page');
-        expect(cashierLink).toHaveAttribute('aria-current', 'page');
+        expect(reportsAriaCurrent).toEqual(null);
+        expect(cashierAriaCurrent).toEqual('page');
     });
 });
