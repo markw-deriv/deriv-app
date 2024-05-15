@@ -78,12 +78,12 @@ runs:
       REF_NAME: ${{ inputs.REF_NAME }}
       REMOTE_CONFIG_URL: ${{ inputs.REMOTE_CONFIG_URL }}
       NODE_OPTIONS: "--max_old_space_size=4096"
-    run: npm run build:prod && npm run analyze:stats
+    run: npm run build:prod && npm run analyze:stats && npm run analyze:build
     shell: bash
 
   - name: Zip all stats.json files
     run: |
-      zip -r stats.zip packages/*/stats.json
+      zip -r stats.zip packages/*/report.json
     shell: bash
 
   - name: Upload stats.zip
@@ -91,4 +91,4 @@ runs:
     with:
       name: stats-${{ github.sha }}
       path: stats.zip
-      retention-days: 1
+      retention-days: 3
