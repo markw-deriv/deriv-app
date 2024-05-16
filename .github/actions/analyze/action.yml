@@ -27,6 +27,9 @@ inputs:
   DATADOG_SESSION_SAMPLE_RATE:
     description: 'Datadog session sample rate'
     required: false
+  GITHUB_TOKEN:
+    description: 'Github token for downloading artifacts'
+    required: true
   GD_API_KEY:
     description: 'Google drive api key'
     required: false
@@ -58,6 +61,46 @@ inputs:
 runs:
   using: composite
   steps:
+
+  - name: Get latest commit hash from master
+    id: latest_commit
+    run: |
+      git fetch origin master
+      LATEST_COMMIT=$(git rev-parse origin/master)
+      echo "LATEST_COMMIT=$LATEST_COMMIT" >> $GITHUB_ENV
+    shell: bash
+
+  - name: Check if previous artifact exists
+    id: artifact_check
+    run: |
+      ARTIFACT_EXISTS=$(curl -s -H "Authorization: Bearer ${{ github.token }}" "https://api.github.com/repos/${{ github.repository }}/actions/artifacts?name=reports-${{ env.LATEST_COMMIT }}" | jq '.total_count' | awk '{print $1}')
+      if [[ $ARTIFACT_EXISTS -gt 0 ]]; then
+        echo "ARTIFACT_EXISTS=true" >> $GITHUB_ENV
+      else
+        echo "ARTIFACT_EXISTS=false" >> $GITHUB_ENV
+      fi
+    shell: bash
+
+  - name: Get artifact URL
+    id: get_artifact_url
+    run: |
+      ARTIFACT_URL=$(curl -s -H "Authorization: Bearer ${{ inputs.GITHUB_TOKEN }}" \
+        "https://api.github.com/repos/${{ github.repository }}/actions/artifacts?name=reports-${{ env.LATEST_COMMIT }}" | \
+        jq -r '.artifacts[0].archive_download_url')
+      echo "ARTIFACT_URL=$ARTIFACT_URL" >> $GITHUB_ENV
+    shell: bash
+
+  - name: Download artifact
+    if: env.ARTIFACT_URL != 'null'
+    run: |
+      curl -L -H "Authorization: Bearer ${{ inputs.GITHUB_TOKEN }}" \
+        "${{ env.ARTIFACT_URL }}" \
+        -o artifact.zip
+      unzip artifact.zip -d old
+      cd old
+      unzip reports.zip
+    shell: bash
+
   - name: Analyze all packages
     env:
       NODE_ENV: ${{ inputs.NODE_ENV }}
@@ -78,17 +121,40 @@ runs:
       REF_NAME: ${{ inputs.REF_NAME }}
       REMOTE_CONFIG_URL: ${{ inputs.REMOTE_CONFIG_URL }}
       NODE_OPTIONS: "--max_old_space_size=4096"
-    run: npm run build:prod && npm run analyze:stats
+    run: npm run build:prod && npm run analyze:stats && npm run analyze:build
     shell: bash
 
-  - name: Zip all stats.json files
+  - name: Compare report to main
+    id: diff
+    if: env.ARTIFACT_URL != 'null'
     run: |
-      zip -r stats.zip packages/*/stats.json
+      DIFF_OUTPUT=$(node .github/workflows/compareReports.js)
+      echo "DIFF_OUTPUT<<EOF" >> $GITHUB_ENV
+      echo "$DIFF_OUTPUT" >> $GITHUB_ENV
+      echo "EOF" >> $GITHUB_ENV
+
+  - name: Comment on PR with bundle diff
+    if: github.event_name == 'pull_request' && env.ARTIFACT_URL != 'null'
+    uses: actions/github-script@v5
+    with:
+      script: |
+        const diffOutput = `${{ env.DIFF_OUTPUT }}`;
+        github.rest.issues.createComment({
+          owner: context.repo.owner,
+          repo: context.repo.repo,
+          issue_number: context.issue.number,
+          body: `${diffOutput}`
+        });
+
+
+  - name: Zip all report.json files
+    run: |
+      zip -r reports.zip packages/*/report.json
     shell: bash
 
-  - name: Upload stats.zip
+  - name: Upload reports.zip
     uses: actions/upload-artifact@v4
     with:
-      name: stats-${{ github.sha }}
-      path: stats.zip
-      retention-days: 1
+      name: report-${{ github.sha }}
+      path: reports.zip
+      retention-days: 3
