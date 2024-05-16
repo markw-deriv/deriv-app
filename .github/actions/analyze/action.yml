@@ -65,6 +65,7 @@ runs:
       git fetch origin main
       LATEST_COMMIT=$(git rev-parse origin/main)
       echo "LATEST_COMMIT=$LATEST_COMMIT" >> $GITHUB_ENV
+    shell: bash
 
   - name: Check if previous artifact exists
     id: artifact_check
@@ -75,6 +76,7 @@ runs:
       else
         echo "ARTIFACT_EXISTS=false" >> $GITHUB_ENV
       fi
+    shell: bash
 
   - name: Get artifact URL
     id: get_artifact_url
@@ -83,6 +85,7 @@ runs:
         "https://api.github.com/repos/${{ github.repository }}/actions/artifacts?name=reports-${{ env.LATEST_COMMIT }}" | \
         jq -r '.artifacts[0].archive_download_url')
       echo "ARTIFACT_URL=$ARTIFACT_URL" >> $GITHUB_ENV
+    shell: bash
 
   - name: Download artifact
     if: env.ARTIFACT_URL != 'null'
@@ -93,6 +96,7 @@ runs:
       unzip artifact.zip -d old
       cd old
       unzip reports.zip
+    shell: bash
 
   - name: Analyze all packages
     env:
