@@ -58,6 +58,42 @@ inputs:
 runs:
   using: composite
   steps:
+
+  - name: Get latest commit hash from main
+    id: latest_commit
+    run: |
+      git fetch origin main
+      LATEST_COMMIT=$(git rev-parse origin/main)
+      echo "LATEST_COMMIT=$LATEST_COMMIT" >> $GITHUB_ENV
+
+  - name: Check if previous artifact exists
+    id: artifact_check
+    run: |
+      ARTIFACT_EXISTS=$(curl -s -H "Authorization: Bearer ${{ github.token }}" "https://api.github.com/repos/${{ github.repository }}/actions/artifacts?name=reports-${{ env.LATEST_COMMIT }}" | jq '.total_count' | awk '{print $1}')
+      if [[ $ARTIFACT_EXISTS -gt 0 ]]; then
+        echo "ARTIFACT_EXISTS=true" >> $GITHUB_ENV
+      else
+        echo "ARTIFACT_EXISTS=false" >> $GITHUB_ENV
+      fi
+
+  - name: Get artifact URL
+    id: get_artifact_url
+    run: |
+      ARTIFACT_URL=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+        "https://api.github.com/repos/${{ github.repository }}/actions/artifacts?name=reports-${{ env.LATEST_COMMIT }}" | \
+        jq -r '.artifacts[0].archive_download_url')
+      echo "ARTIFACT_URL=$ARTIFACT_URL" >> $GITHUB_ENV
+
+  - name: Download artifact
+    if: env.ARTIFACT_URL != 'null'
+    run: |
+      curl -L -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+        "${{ env.ARTIFACT_URL }}" \
+        -o artifact.zip
+      unzip artifact.zip -d old
+      cd old
+      unzip reports.zip
+
   - name: Analyze all packages
     env:
       NODE_ENV: ${{ inputs.NODE_ENV }}
