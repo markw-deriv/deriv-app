@@ -62,11 +62,11 @@ runs:
   using: composite
   steps:
 
-  - name: Get latest commit hash from main
+  - name: Get latest commit hash from master
     id: latest_commit
     run: |
-      git fetch origin main
-      LATEST_COMMIT=$(git rev-parse origin/main)
+      git fetch origin master
+      LATEST_COMMIT=$(git rev-parse origin/master)
       echo "LATEST_COMMIT=$LATEST_COMMIT" >> $GITHUB_ENV
     shell: bash
 
